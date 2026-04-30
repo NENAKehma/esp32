@@ -61,84 +61,58 @@ if (isset($_POST['valeur'])) {
 
 # index.php
 
-Page web permettant :
-- d’afficher la dernière valeur reçue,
-- de contrôler la LED,
-- de contrôler le buzzer.
-
-```php
 <?php
-
 $valeur = "Aucune donnée";
 
 if (file_exists("valeur.txt")) {
-    $valeur = file_get_contents("valeur.txt");
+$valeur = file_get_contents("valeur.txt");
 }
-
 ?>
 
 <!DOCTYPE html>
 <html lang="fr">
-
 <head>
-
 <meta charset="UTF-8">
 <meta http-equiv="refresh" content="2">
-
-<title>ESP32 Web Server</title>
-
+<title>Donnée ESP32</title>
 <style>
-
 body {
-    font-family: Arial;
-    text-align: center;
-    margin-top: 50px;
+font-family: Arial, sans-serif;
+text-align: center;
+margin-top: 50px;
 }
-
 .box {
-    display: inline-block;
-    padding: 20px 40px;
-    border: 2px solid black;
-    border-radius: 10px;
-    font-size: 30px;
+display: inline-block;
+padding: 20px 40px;
+border: 2px solid #333;
+border-radius: 12px;
+font-size: 28px;
+background-color: #f2f2f2;
 }
-
-button {
-    padding: 10px 20px;
-    margin: 10px;
-    font-size: 18px;
-}
-
 </style>
-
 </head>
-
 <body>
+<h1>Valeur reçue depuis l'ESP32</h1>
+<div class="box"><?php echo htmlspecialchars($valeur); ?></div>
 
-<h1>Valeur ESP32</h1>
+    <PARTIE MESURE A LAISSER>
 
-<div class="box">
-<?php echo htmlspecialchars($valeur); ?>
-</div>
+<h2>Commande ESP32</h2>
 
-<br><br>
+<h3>Commande LED</h3>
+   <button onclick="fetch('http://192.168.100.109/led')">
+   Allumer
+   </button>
+   
+   
+<h3>Commande son</h3>
 
-<h1>Commande ESP32</h1>
-
-<button onclick="fetch('http://IP_ESP32/led')">
-LED
-</button>
-
-<button onclick="fetch('http://IP_ESP32/son')">
-SON
-</button>
+   <button onclick="fetch('http://192.168.100.109/son')">
+   Allumer
+   </button>
 
 </body>
-
 </html>
-```
-
----
 
 # Code ESP32 – Envoi de données
 
@@ -191,47 +165,59 @@ void loop() {
 
 # ESP32 – Serveur Web LED/Buzzer
 
-```cpp
 #include <WiFi.h>
 #include <WebServer.h>
-
-const char* ssid = "TPSN035";
-const char* password = "BTSSN2022";
+#include <HTTPClient.h>
+const char* ssid = "TPSN035";    // à modifier
+const char* password = "BTSSN2022"; // à modifier aussi
+const char* serverName = "http://192.168.100.34/btsciel/TP07_2/data.php";
+int myrandom = 0 ;
 
 WebServer server(80);
 
-int led = 23;
+int sortieled = 23;
 int buzzer = 26;
+int frequence = 2000;
+void handleLED();
+void handleSON();
 
 void gestionLED() {
-
-  digitalWrite(led, HIGH);
-  delay(1000);
-  digitalWrite(led, LOW);
-
-  server.send(200, "text/plain", "LED OK");
+  Serial.println("reception info client led");
+  digitalWrite(sortieled, HIGH);
+  delay(3000);
+  digitalWrite(sortieled, LOW);
+  delay(3000);
+  
+  
+  server.send(200, "text/plain", "LED test");
 }
 
 void gestionSON() {
-
+  Serial.println("reception info client son");
   ledcWriteTone(buzzer, 1000);
   delay(500);
+  ledcWriteTone(buzzer, 500); 
+  delay(500);
+  ledcWriteTone(buzzer, 1000); 
+  delay(500);
+  ledcWriteTone(buzzer, 500); 
+  delay(500);
+  ledcWriteTone(buzzer, 0); 
 
-  ledcWriteTone(buzzer, 0);
-
-  server.send(200, "text/plain", "SON OK");
+  Serial.println("reception info client son");
+  server.send(200, "text/plain", "Son test");
 }
 
 void setup() {
 
-  pinMode(led, OUTPUT);
-
-  ledcAttach(buzzer, 2000, 8);
-
+  Serial.begin(115200);
+  pinMode(sortieled, OUTPUT);
+  ledcAttach(buzzer, frequence,8);
   WiFi.begin(ssid, password);
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
+    Serial.print(".");
   }
 
   Serial.println(WiFi.localIP());
@@ -243,13 +229,25 @@ void setup() {
 }
 
 void loop() {
-
   server.handleClient();
+  if (WiFi.status() == WL_CONNECTED) {
+    int valeur = random(0,100);
+    Serial.print("Valeur envoyer:");
+    Serial.print(valeur);
+    HTTPClient http;
+    http.begin(serverName);
+    http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+
+    String data = "valeur=" + String(valeur);
+    int httpReponse = http.POST(data);
+    Serial.print("HTTP Reponse code: ");
+    Serial.println(httpReponse);
+
+    http.end();
+  }
+
+  delay(2000);
 }
-```
-
----
-
 # Fonctionnement du projet
 
 ## Partie 1 – Envoi de données
