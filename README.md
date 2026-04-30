@@ -24,42 +24,117 @@ Projet IoT utilisant une carte ESP32 et un serveur Ubuntu Apache/PHP permettant 
 
 ---
 
+
 # data.php
 
 Fichier PHP permettant :
 - de recevoir les données envoyées par l’ESP32,
 - d’enregistrer la dernière valeur dans `valeur.txt`,
-- d’ajouter un historique dans `valeur.csv`.
+- d’afficher la dernière valeur reçue,
+- de contrôler la LED et le buzzer depuis la page web.
 
 ```php
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
-date_default_timezone_set("Pacific/Noumea");
+$file = __DIR__ . "/valeur.txt";
 
-if (isset($_POST['valeur'])) {
+// Si c'est une requête POST, on enregistre la valeur
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $valeur = $_POST['valeur'];
+    if (isset($_POST['valeur'])) {
 
-    file_put_contents("valeur.txt", $valeur);
+        $valeur = $_POST['valeur'];
 
-    $date = date("Y-m-d");
-    $heure = date("H:i:s");
+        $result = file_put_contents($file, $valeur);
 
-    $fichier = fopen("valeur.csv", "a");
+        if ($result === false) {
 
-    fputcsv($fichier, [$date, $heure, $valeur]);
+            echo "Erreur écriture fichier";
 
-    fclose($fichier);
+        } else {
 
-    echo "OK";
+            echo "Valeur enregistrée : " . $valeur;
+        }
+
+    } else {
+
+        echo "POST reçu mais pas de valeur";
+    }
+
+    exit;
 }
 
+// Si c'est une requête GET, on lit et affiche la dernière valeur
+if (file_exists($file)) {
+
+    $valeurAffiche = file_get_contents($file);
+
+} else {
+
+    $valeurAffiche = "Aucune valeur reçue pour l'instant.";
+}
 ?>
+
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>Valeur Arduino</title>
+
+<meta http-equiv="refresh" content="5">
+
+<style>
+
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin-top: 50px;
+}
+
+.valeur {
+    font-size: 2em;
+    color: #007BFF;
+}
+
+button {
+    padding: 10px 20px;
+    font-size: 18px;
+    margin: 10px;
+    cursor: pointer;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>Dernière valeur reçue de l'Arduino</h1>
+
+<div class="valeur">
+<?php echo htmlspecialchars($valeurAffiche); ?>
+</div>
+
+<p>
+La page se rafraîchit automatiquement toutes les 5 secondes.
+</p>
+
+<button onclick="fetch('http://192.168.100.91/led')">
+Allumer Led
+</button>
+
+<button onclick="fetch('http://192.168.100.91/son')">
+Allumer Buzzer
+</button>
+
+</body>
+</html>
 ```
-
----
-
-
 # index.php
 
 Page web permettant :
